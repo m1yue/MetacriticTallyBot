@@ -1,11 +1,8 @@
 import requests
 from bs4 import BeautifulSoup
-import pandas as pd
 
 #input url is the metacritic "critic reviews" page for a game
-def metacritic_scrape(url) -> str:
-    headers = {'User-Agent': 'user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.120 Safari/537.36'}
-    
+def metacritic_scrape(url) -> str:    
     #call requestPageContent to get the desired div
     main_div = requestPageContent(url, "main")
     if not main_div:
@@ -13,39 +10,44 @@ def metacritic_scrape(url) -> str:
 
     #list comprehensions to get our desired class elements using select
     group_scores = [score.get_text() for score in main_div.select('.body .review_content .review_grade .metascore_w')]
+    game_name = [name.get_text() for name in main_div.select('.content_head .product_title .hover_none')]
     
     #bucket sort the scores and return them
+
+    print(game_name[0])
     tally_scores = [0 for i in range(11)]
     for score in group_scores:
         if score:
             tally_scores[int(score)//10] += 1
     
-    output_string = print_tallies(tally_scores)
+    output_string = print_tallies(tally_scores, game_name[0])
     return(output_string)
     
 
 
 
 #scrape the search of metacritic, get the top match and then go to the critic reviews url
+#returns tuple of official game name and the critic reviews link
 def findCriticReviews(name):
     import urllib.parse
     
-    parsed_name = name.replace(' ', '-')
-    parsed_name = parsed_name.replace(':', '-')
-    parsed_name = parsed_name.replace('--', '-')
-
     parsed_name = urllib.parse.quote(name)
-
     #search the name
-    url = "https://www.metacritic.com/search/game/" + parsed_name + "results"
+    url = "https://www.metacritic.com/search/game/" + parsed_name + "/results"
 
     search_div = requestPageContent(url, "main_content")
-    #first_result = [result for result in search_div.select('.body .search_results .first_result .product_title')]
+    #print(search_div)
+    first_result = [result for result in search_div.select(".module .body .first_result .product_title a[href]")]
+    #game_name = [tag.get_text() for tag in first_result]
+    search_url = [tag.get('href') for tag in first_result]
     
     #print(first_result)
-    #first_result_url = first_result[0].find('a', href=True)
+    #print(game_name)
+    #print(search_url)
 
-    #print(first_result_url)
+    return "https://www.metacritic.com"+search_url[0]+"/critic-reviews"
+    
+
 
     
 
@@ -77,8 +79,8 @@ def requestPageContent(url, id):
 
 #pretty prints the scores
 #input scores in ascending order
-def print_tallies(sorted_scores) -> str:
-    output_list = []
+def print_tallies(sorted_scores, game_name) -> str:
+    output_list = ["Metacritic Review Scores for ", game_name.strip(), " :\n"]
     for index, num in enumerate(reversed(sorted_scores)):
         output_list.append("{:02d}".format(10-index))
         output_list.append("- ")
@@ -90,8 +92,10 @@ def print_tallies(sorted_scores) -> str:
     return "".join(output_list)
         
 def main():
-    #print(metacritic_scrape("https://www.metacritic.com/game/playstation-4/nier-automata/critic-reviews"))
 
-    findCriticReviews("nioh")
+    critic_reviews_url = findCriticReviews("nioh")
+    print(metacritic_scrape(critic_reviews_url))
+
+
 
 main()
